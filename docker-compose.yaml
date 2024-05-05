@@ -344,14 +344,14 @@ services:
       - gluetun
     restart: unless-stopped
 
-    flaresolverr:
-      image: lscr.io/linuxserver/flaresolverr
-      container_name: flaresolverr
-      ports:
-        - 8191:8191
-      profiles:
-        - flaresolverr
-      restart: unless-stopped
+  flaresolverr:
+    image: lscr.io/linuxserver/flaresolverr
+    container_name: flaresolverr
+    ports:
+      - 8191:8191
+    profiles:
+      - flaresolverr
+    restart: unless-stopped
 
 #============ Other Services ================
 
