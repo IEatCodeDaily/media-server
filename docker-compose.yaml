@@ -1,0 +1,383 @@
+version: "3"
+
+services:
+
+#============ Reverse Proxy ================
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    domainname: ${DOMAIN_NAME}
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # - "--log.level=DEBUG"
+    ports:
+      # The Web UI (enabled by --api.insecure=true in traefik.toml)
+      - 8080:8080
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+#============ Dashboard ================
+
+  homarr:
+    container_name: homarr
+    image: ghcr.io/ajnart/homarr:latest
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homarr.rule=Host(`${DOMAIN_NAME}`) || Host(`homarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.homarr.loadbalancer.server.port=7575"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - VERSION=docker
+      - NODE_TLS_REJECT_UNAUTHORIZE=0
+      - BASE_URL=${DOMAIN_NAME}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock # Optional, only if you want docker integration
+      - ${INSTALL_DIRECTORY}/config/homarr/configs:/app/data/configs
+      - ${INSTALL_DIRECTORY}/config/homarr/icons:/app/public/icons
+      - ${INSTALL_DIRECTORY}/config/homarr/data:/data
+    profiles:
+      - homarr
+    ports:
+      - 7575:7575
+
+  organizr:
+    container_name: organizr
+    hostname: organizr
+    image: organizr/organizr:latest
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.organizr.rule=Host(`${DOMAIN_NAME}`) || Host(`organizr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.organizr.loadbalancer.server.port=80"
+    volumes:
+      - ${INSTALL_DIRECTORY}/config/organizr/configs:/config
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Jakarta
+    # ports:  # Uncomment this if you don't want to use traefik. Don't forget to comment traefik service
+    #     - 80:80
+    profiles:
+      - organizr
+    restart: unless-stopped
+
+#============ Media Service ================
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin
+    container_name: jellyfin
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN_NAME}`)"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+      # - "traefik.http.routers.${MEDIA_SERVICE}.tls=true"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - VERSION=docker
+    volumes:
+      - ${MEDIA_DIRECTORY}:/data
+      - ${INSTALL_DIRECTORY}/config/${MEDIA_SERVICE}:/config
+    ports: 
+      - 8096:8096 
+    profiles:
+      - jellyfin
+    restart: unless-stopped
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
+    environment:
+      # - LOG_LEVEL=debug
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${INSTALL_DIRECTORY}/config/jellyseerr:/app/config
+    ports:
+      - 5055:5055
+    profiles:
+      - jellyfin
+    restart: unless-stopped
+
+    plex:
+      image: plexinc/pms-docker
+      container_name: plex
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.plex.rule=Host(`plex.${DOMAIN_NAME}`)"
+        - "traefik.http.services.plex.loadbalancer.server.port=32400"
+      environment:
+        - PUID=${PUID}
+        - PGID=${PGID}
+        - TZ=${TZ}
+      volumes:
+        - ${MEDIA_DIRECTORY}:/data
+        - ${INSTALL_DIRECTORY}/config/plex:/config
+      ports:
+        - 32400:32400
+      profiles:
+        - plex
+      restart: unless-stopped
+
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.overseerr.rule=Host(`overseerr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${INSTALL_DIRECTORY}/config/overseerr:/config
+    ports:
+      - 5055:5055
+    profiles:
+      - plex
+    restart: unless-stopped
+
+#============ Download Client ================
+
+  # qBitorrent is used to download torrents
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:4.6.0
+    container_name: qbittorrent
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbittorrent.${DOMAIN_NAME}`)"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - WEBUI_PORT=8080
+    volumes:
+      - ${MEDIA_DIRECTORY}/downloads:/downloads
+      - ${INSTALL_DIRECTORY}/config/qbittorrent:/config
+    restart: unless-stopped
+    ports: # qbittorrent
+      - 8081:8080 # qbittorrent
+    profiles:
+      - qbittorrent
+    #network_mode: "service:gluetun"
+
+  # Transmission is used to download torrents
+  transmission:
+    image: lscr.io/linuxserver/transmission
+    container_name: transmission
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.transmission.rule=Host(`transmission.${DOMAIN_NAME}`)"
+      - "traefik.http.services.transmission.loadbalancer.server.port=9091"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${MEDIA_DIRECTORY}/downloads:/downloads
+      - ${INSTALL_DIRECTORY}/config/transmission:/config
+    ports:
+      - 9091:9091
+    profiles:
+      - transmission
+    restart: unless-stopped
+
+#============ Media Management ================
+
+  # Sonarr is used to query, add downloads to the download queue and index TV shows
+  # https://sonarr.tv/
+  sonarr:
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${MEDIA_DIRECTORY}/tvshows:/tv
+      - ${MEDIA_DIRECTORY}/downloads:/downloads
+      - ${INSTALL_DIRECTORY}/config/sonarr:/config
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+
+  # Radarr is used to query, add downloads to the download queue and index Movies
+  # https://radarr.video/
+  radarr:
+    image: lscr.io/linuxserver/radarr
+    container_name: radarr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${MEDIA_DIRECTORY}/movies:/movies
+      - ${MEDIA_DIRECTORY}/downloads:/downloads
+      - ${INSTALL_DIRECTORY}/config/radarr:/config
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+
+  # Lidarr is used to query, add downloads to the download queue and index Music
+  # https://lidarr.audio/
+  lidarr:
+    image: lscr.io/linuxserver/lidarr
+    container_name: lidarr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lidarr.rule=Host(`lidarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.lidarr.loadbalancer.server.port=8686"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${MEDIA_DIRECTORY}/music:/music
+      - ${MEDIA_DIRECTORY}/downloads:/downloads
+      - ${INSTALL_DIRECTORY}/config/lidarr:/config
+    ports:
+      - 8686:8686
+    restart: unless-stopped
+
+  # Readarr is used to query, add downloads to the download queue and index Audio and Ebooks
+  # https://readarr.com/
+  readarr:
+    image: lscr.io/linuxserver/readarr:develop
+    container_name: readarr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.readarr.rule=Host(`readarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.readarr.loadbalancer.server.port=8787"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${MEDIA_DIRECTORY}/books:/books
+      - ${MEDIA_DIRECTORY}/downloads:/downloads
+      - ${INSTALL_DIRECTORY}/config/readarr:/config
+    ports:
+      - 8787:8787
+    restart: unless-stopped
+
+  # Bazarr is used to download and categorize subtitles
+  # https://www.bazarr.media/
+  bazarr:
+    image: lscr.io/linuxserver/bazarr
+    container_name: bazarr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.bazarr.loadbalancer.server.port=6767"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${MEDIA_DIRECTORY}/movies:/movies
+      - ${MEDIA_DIRECTORY}/tvshows:/tv
+      - ${INSTALL_DIRECTORY}/config/bazarr:/config
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+
+  # Prowlarr is our torrent indexer/searcher. Sonarr/Radarr use Prowlarr as a source
+  # https://prowlarr.com/
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr
+    container_name: prowlarr
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN_NAME}`)"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ${INSTALL_DIRECTORY}/config/prowlarr:/config
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+
+#============ Network ================
+
+  # Gluetun is a VPN client that can be used to route all traffic through a VPN
+  gluetun:
+    image: qmcgaw/gluetun:v3
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 8888:8888/tcp # HTTP proxy
+      - 8388:8388/tcp # Shadowsocks
+      - 8388:8388/udp # Shadowsocks
+      #- 8080:8080/tcp # gluetun
+    volumes:
+      - ${INSTALL_DIRECTORY}/config/gluetun:/config
+    environment:
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE}
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${VPN_USER}
+      - OPENVPN_PASSWORD=${VPN_PASSWORD}
+      - OPENVPN_CIPHERS=AES-256-GCM
+    profiles:
+      - gluetun
+    restart: unless-stopped
+
+    flaresolverr:
+      image: lscr.io/linuxserver/flaresolverr
+      container_name: flaresolverr
+      ports:
+        - 8191:8191
+      profiles:
+        - flaresolverr
+      restart: unless-stopped
+
+#============ Other Services ================
+
+  # Watchtower is going to keep our instances updated
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    environment:
+      - WATCHTOWER_CLEANUP=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    
+    # Portainer is a web interface for managing docker
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_NAME}`)"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${INSTALL_DIRECTORY}/config/portainer:/data
+    restart: unless-stopped
+    profiles:
+      - portainer
+    ports:
+      - 9000:9000
