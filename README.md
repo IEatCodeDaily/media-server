@@ -21,6 +21,8 @@ The docker-compose contains all these services:
 
 You can chose which services to run and whether to run it or no by changing the `COMPOSE_PROFILES` Environment Variable in `.env`.
 
+Traefik automatically discover which services you enabled and will map `http://<service>.<DOMAIN_NAME>/` to it's corresponding service endpoint. For example, if `DOMAIN_NAME=media.home`, `http://jellyfin.media.home` will redirect to jellyfin:8096. However, make sure your PC can resolve `DOMAIN_NAME` into the docker host server's IP. 
+
 # How to use it
 1. Download the `docker-compose.yml` file
 2. Configure the `.env`
