@@ -345,7 +345,7 @@ services:
     restart: unless-stopped
 
   flaresolverr:
-    image: lscr.io/linuxserver/flaresolverr
+    image: flaresolverr/flaresolverr
     container_name: flaresolverr
     ports:
       - 8191:8191
