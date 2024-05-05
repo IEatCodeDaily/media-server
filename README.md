@@ -1,6 +1,4 @@
 # Media Server
-
-# Description
 This is a media server compose file complete with the media service, download client, dashboard, discovery services, and reverse proxy.
 This isn't configured for external connection. If you want offsite connection, I'd suggest setting up a VPN using Tailscale or Wireguard. An illustration of my setup can be seen in [here](#example-setup)
 
