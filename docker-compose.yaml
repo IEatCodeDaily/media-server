@@ -113,25 +113,25 @@ services:
       - jellyfin
     restart: unless-stopped
 
-    plex:
-      image: plexinc/pms-docker
-      container_name: plex
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.plex.rule=Host(`plex.${DOMAIN_NAME}`)"
-        - "traefik.http.services.plex.loadbalancer.server.port=32400"
-      environment:
-        - PUID=${PUID}
-        - PGID=${PGID}
-        - TZ=${TZ}
-      volumes:
-        - ${MEDIA_DIRECTORY}:/data
-        - ${CONFIG_DIRECTORY}/config/plex:/config
-      ports:
-        - 32400:32400
-      profiles:
-        - plex
-      restart: unless-stopped
+  plex:
+    image: plexinc/pms-docker
+    container_name: plex
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.plex.rule=Host(`plex.${DOMAIN_NAME}`)"
+      - "traefik.http.services.plex.loadbalancer.server.port=32400"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${MEDIA_DIRECTORY}:/data
+      - ${CONFIG_DIRECTORY}/config/plex:/config
+    ports:
+      - 32400:32400
+    profiles:
+      - plex
+    restart: unless-stopped
 
   overseerr:
     image: lscr.io/linuxserver/overseerr:latest
