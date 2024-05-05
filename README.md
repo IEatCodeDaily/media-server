@@ -19,9 +19,9 @@ The docker-compose contains all these services:
 - Watchtower
 - Portainer
 
-You can chose which services to run and whether to run it or no by changing the `COMPOSE_PROFILES` Environment Variable in `.env`.
+You can chose which services to run and whether to run it or no by changing the `COMPOSE_PROFILES` Environment Variable in `.env`. you can choose whether you want Jellyfin or Plex (and its relevant serr service), qBittorrent or Transmission, Portainer, etc. Refer to `.env.example` for available profile options.
 
-Traefik automatically discover which services you enabled and will map `http://<service>.<DOMAIN_NAME>/` to it's corresponding service endpoint. For example, if `DOMAIN_NAME=media.home`, `http://jellyfin.media.home` will redirect to jellyfin:8096. However, make sure your PC can resolve `DOMAIN_NAME` into the docker host server's IP. 
+Traefik automatically discover which services you enabled and will map `http://<service>.<DOMAIN_NAME>/` to its corresponding service endpoint. For example, if `DOMAIN_NAME=media.home`, `http://jellyfin.media.home` will redirect to jellyfin:8096. However, make sure your PC can resolve `DOMAIN_NAME` into the docker host server's IP. 
 
 # How to use it
 1. Download the `docker-compose.yml` file
