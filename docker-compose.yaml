@@ -41,9 +41,9 @@ services:
       - BASE_URL=${DOMAIN_NAME}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Optional, only if you want docker integration
-      - ${INSTALL_DIRECTORY}/config/homarr/configs:/app/data/configs
-      - ${INSTALL_DIRECTORY}/config/homarr/icons:/app/public/icons
-      - ${INSTALL_DIRECTORY}/config/homarr/data:/data
+      - ${CONFIG_DIRECTORY}/config/homarr/configs:/app/data/configs
+      - ${CONFIG_DIRECTORY}/config/homarr/icons:/app/public/icons
+      - ${CONFIG_DIRECTORY}/config/homarr/data:/data
     profiles:
       - homarr
     ports:
@@ -58,7 +58,7 @@ services:
       - "traefik.http.routers.organizr.rule=Host(`${DOMAIN_NAME}`) || Host(`organizr.${DOMAIN_NAME}`)"
       - "traefik.http.services.organizr.loadbalancer.server.port=80"
     volumes:
-      - ${INSTALL_DIRECTORY}/config/organizr/configs:/config
+      - ${CONFIG_DIRECTORY}/config/organizr/configs:/config
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -78,7 +78,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN_NAME}`)"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
-      # - "traefik.http.routers.${MEDIA_SERVICE}.tls=true"
+      # - "traefik.http.routers.jellyfin.tls=true"
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -86,7 +86,7 @@ services:
       - VERSION=docker
     volumes:
       - ${MEDIA_DIRECTORY}:/data
-      - ${INSTALL_DIRECTORY}/config/${MEDIA_SERVICE}:/config
+      - ${CONFIG_DIRECTORY}/config/jellyfin:/config
     ports: 
       - 8096:8096 
     profiles:
@@ -106,7 +106,7 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - ${INSTALL_DIRECTORY}/config/jellyseerr:/app/config
+      - ${CONFIG_DIRECTORY}/config/jellyseerr:/app/config
     ports:
       - 5055:5055
     profiles:
@@ -126,7 +126,7 @@ services:
         - TZ=${TZ}
       volumes:
         - ${MEDIA_DIRECTORY}:/data
-        - ${INSTALL_DIRECTORY}/config/plex:/config
+        - ${CONFIG_DIRECTORY}/config/plex:/config
       ports:
         - 32400:32400
       profiles:
@@ -145,7 +145,7 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - ${INSTALL_DIRECTORY}/config/overseerr:/config
+      - ${CONFIG_DIRECTORY}/config/overseerr:/config
     ports:
       - 5055:5055
     profiles:
@@ -168,7 +168,7 @@ services:
       - WEBUI_PORT=8080
     volumes:
       - ${MEDIA_DIRECTORY}/downloads:/downloads
-      - ${INSTALL_DIRECTORY}/config/qbittorrent:/config
+      - ${CONFIG_DIRECTORY}/config/qbittorrent:/config
     restart: unless-stopped
     ports: # qbittorrent
       - 8081:8080 # qbittorrent
@@ -190,7 +190,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ${MEDIA_DIRECTORY}/downloads:/downloads
-      - ${INSTALL_DIRECTORY}/config/transmission:/config
+      - ${CONFIG_DIRECTORY}/config/transmission:/config
     ports:
       - 9091:9091
     profiles:
@@ -214,7 +214,7 @@ services:
     volumes:
       - ${MEDIA_DIRECTORY}/tvshows:/tv
       - ${MEDIA_DIRECTORY}/downloads:/downloads
-      - ${INSTALL_DIRECTORY}/config/sonarr:/config
+      - ${CONFIG_DIRECTORY}/config/sonarr:/config
     ports:
       - 8989:8989
     restart: unless-stopped
@@ -234,7 +234,7 @@ services:
     volumes:
       - ${MEDIA_DIRECTORY}/movies:/movies
       - ${MEDIA_DIRECTORY}/downloads:/downloads
-      - ${INSTALL_DIRECTORY}/config/radarr:/config
+      - ${CONFIG_DIRECTORY}/config/radarr:/config
     ports:
       - 7878:7878
     restart: unless-stopped
@@ -254,7 +254,7 @@ services:
     volumes:
       - ${MEDIA_DIRECTORY}/music:/music
       - ${MEDIA_DIRECTORY}/downloads:/downloads
-      - ${INSTALL_DIRECTORY}/config/lidarr:/config
+      - ${CONFIG_DIRECTORY}/config/lidarr:/config
     ports:
       - 8686:8686
     restart: unless-stopped
@@ -274,7 +274,7 @@ services:
     volumes:
       - ${MEDIA_DIRECTORY}/books:/books
       - ${MEDIA_DIRECTORY}/downloads:/downloads
-      - ${INSTALL_DIRECTORY}/config/readarr:/config
+      - ${CONFIG_DIRECTORY}/config/readarr:/config
     ports:
       - 8787:8787
     restart: unless-stopped
@@ -294,7 +294,7 @@ services:
     volumes:
       - ${MEDIA_DIRECTORY}/movies:/movies
       - ${MEDIA_DIRECTORY}/tvshows:/tv
-      - ${INSTALL_DIRECTORY}/config/bazarr:/config
+      - ${CONFIG_DIRECTORY}/config/bazarr:/config
     ports:
       - 6767:6767
     restart: unless-stopped
@@ -312,7 +312,7 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
     volumes:
-      - ${INSTALL_DIRECTORY}/config/prowlarr:/config
+      - ${CONFIG_DIRECTORY}/config/prowlarr:/config
     ports:
       - 9696:9696
     restart: unless-stopped
@@ -333,7 +333,7 @@ services:
       - 8388:8388/udp # Shadowsocks
       #- 8080:8080/tcp # gluetun
     volumes:
-      - ${INSTALL_DIRECTORY}/config/gluetun:/config
+      - ${CONFIG_DIRECTORY}/config/gluetun:/config
     environment:
       - VPN_SERVICE_PROVIDER=${VPN_SERVICE}
       - VPN_TYPE=openvpn
@@ -375,7 +375,7 @@ services:
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${INSTALL_DIRECTORY}/config/portainer:/data
+      - ${CONFIG_DIRECTORY}/config/portainer:/data
     restart: unless-stopped
     profiles:
       - portainer

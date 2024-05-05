@@ -25,7 +25,7 @@ You can chose which services to run and whether to run it or no by changing the 
 
 # How to use it
 1. Download the `docker-compose.yml` file
-2. Choose which service(s) you want to run in `.env`
+2. Configure the `.env`
 3. Run `docker compose up`
 4. Done
 
