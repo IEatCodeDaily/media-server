@@ -1,5 +1,15 @@
 version: "3"
 
+# .env file should contain:
+# STORAGE_TYPE=smb|local (choose one)
+# If STORAGE_TYPE=local, then:
+#   LOCAL_MEDIA_DIRECTORY=/path/to/media
+# If STORAGE_TYPE=smb, then:
+#   SMB_USER=username
+#   SMB_PASSWORD=password
+#   SMB_SERVER=server
+#   SMB_SHARE=Media (or your share name)
+
 services:
 
 #============ Reverse Proxy ================
@@ -22,6 +32,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    profiles:
+      - core
 
 #============ Dashboard ================
 
@@ -62,9 +74,9 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
-      - TZ=Asia/Jakarta
-    # ports:  # Uncomment this if you don't want to use traefik. Don't forget to comment traefik service
-    #     - 80:80
+      - TZ=${TZ}
+    ports:
+      - 81:80
     profiles:
       - organizr
     restart: unless-stopped
@@ -84,14 +96,43 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - VERSION=docker
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
     volumes:
-      - ${MEDIA_DIRECTORY}:/data
       - ${CONFIG_DIRECTORY}/config/jellyfin:/config
-    ports: 
-      - 8096:8096 
+      # Media volumes are conditionally included based on the profile
     profiles:
       - jellyfin
+      - jellyfin-smb
+      - jellyfin-local
     restart: unless-stopped
+    ports: 
+      - 8096:8096
+
+  # Extended Jellyfin service with SMB volumes
+  jellyfin-smb-volumes:
+    extends:
+      service: jellyfin
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/jellyfin:/config
+      - smb-movies:/data/movies
+      - smb-tvshows:/data/tvshows
+      - smb-music:/data/music
+      - smb-photos:/data/photos
+    profiles:
+      - jellyfin-smb
+
+  # Extended Jellyfin service with local volumes
+  jellyfin-local-volumes:
+    extends:
+      service: jellyfin
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/jellyfin:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/movies:/data/movies
+      - ${LOCAL_MEDIA_DIRECTORY}/tvshows:/data/tvshows
+      - ${LOCAL_MEDIA_DIRECTORY}/music:/data/music
+      - ${LOCAL_MEDIA_DIRECTORY}/photos:/data/photos
+    profiles:
+      - jellyfin-local
 
   jellyseerr:
     image: fallenbagel/jellyseerr:latest
@@ -111,6 +152,8 @@ services:
       - 5055:5055
     profiles:
       - jellyfin
+      - jellyfin-smb
+      - jellyfin-local
     restart: unless-stopped
 
   plex:
@@ -125,13 +168,40 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}:/data
       - ${CONFIG_DIRECTORY}/config/plex:/config
     ports:
       - 32400:32400
     profiles:
       - plex
+      - plex-smb
+      - plex-local
     restart: unless-stopped
+
+  # Extended Plex service with SMB volumes
+  plex-smb-volumes:
+    extends:
+      service: plex
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/plex:/config
+      - smb-movies:/data/movies
+      - smb-tvshows:/data/tvshows
+      - smb-music:/data/music
+      - smb-photos:/data/photos
+    profiles:
+      - plex-smb
+
+  # Extended Plex service with local volumes
+  plex-local-volumes:
+    extends:
+      service: plex
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/plex:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/movies:/data/movies
+      - ${LOCAL_MEDIA_DIRECTORY}/tvshows:/data/tvshows
+      - ${LOCAL_MEDIA_DIRECTORY}/music:/data/music
+      - ${LOCAL_MEDIA_DIRECTORY}/photos:/data/photos
+    profiles:
+      - plex-local
 
   overseerr:
     image: lscr.io/linuxserver/overseerr:latest
@@ -150,6 +220,8 @@ services:
       - 5055:5055
     profiles:
       - plex
+      - plex-smb
+      - plex-local
     restart: unless-stopped
 
 #============ Download Client ================
@@ -167,14 +239,34 @@ services:
       - PGID=${PGID}
       - WEBUI_PORT=8080
     volumes:
-      - ${MEDIA_DIRECTORY}/downloads:/downloads
       - ${CONFIG_DIRECTORY}/config/qbittorrent:/config
     restart: unless-stopped
-    ports: # qbittorrent
-      - 8081:8080 # qbittorrent
+    ports:
+      - 8081:8080
     profiles:
       - qbittorrent
-    #network_mode: "service:gluetun"
+      - qbittorrent-smb
+      - qbittorrent-local
+
+  # Extended qBittorrent service with SMB volumes
+  qbittorrent-smb-volumes:
+    extends:
+      service: qbittorrent
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/qbittorrent:/config
+      - smb-downloads:/downloads
+    profiles:
+      - qbittorrent-smb
+
+  # Extended qBittorrent service with local volumes
+  qbittorrent-local-volumes:
+    extends:
+      service: qbittorrent
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/qbittorrent:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/downloads:/downloads
+    profiles:
+      - qbittorrent-local
 
   # Transmission is used to download torrents
   transmission:
@@ -189,13 +281,34 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}/downloads:/downloads
       - ${CONFIG_DIRECTORY}/config/transmission:/config
     ports:
       - 9091:9091
     profiles:
       - transmission
+      - transmission-smb
+      - transmission-local
     restart: unless-stopped
+
+  # Extended transmission service with SMB volumes
+  transmission-smb-volumes:
+    extends:
+      service: transmission
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/transmission:/config
+      - smb-downloads:/downloads
+    profiles:
+      - transmission-smb
+
+  # Extended transmission service with local volumes
+  transmission-local-volumes:
+    extends:
+      service: transmission
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/transmission:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/downloads:/downloads
+    profiles:
+      - transmission-local
 
 #============ Media Management ================
 
@@ -211,13 +324,38 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}/tvshows:/tv
-      - ${MEDIA_DIRECTORY}/downloads:/downloads
       - ${CONFIG_DIRECTORY}/config/sonarr:/config
     ports:
       - 8989:8989
+    profiles:
+      - sonarr
+      - sonarr-smb
+      - sonarr-local
     restart: unless-stopped
+
+  # Extended sonarr service with SMB volumes
+  sonarr-smb-volumes:
+    extends:
+      service: sonarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/sonarr:/config
+      - smb-tvshows:/tv
+      - smb-downloads:/downloads
+    profiles:
+      - sonarr-smb
+
+  # Extended sonarr service with local volumes
+  sonarr-local-volumes:
+    extends:
+      service: sonarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/sonarr:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/tvshows:/tv
+      - ${LOCAL_MEDIA_DIRECTORY}/downloads:/downloads
+    profiles:
+      - sonarr-local
 
   # Radarr is used to query, add downloads to the download queue and index Movies
   # https://radarr.video/
@@ -231,13 +369,38 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}/movies:/movies
-      - ${MEDIA_DIRECTORY}/downloads:/downloads
       - ${CONFIG_DIRECTORY}/config/radarr:/config
     ports:
       - 7878:7878
+    profiles:
+      - radarr
+      - radarr-smb
+      - radarr-local
     restart: unless-stopped
+
+  # Extended radarr service with SMB volumes
+  radarr-smb-volumes:
+    extends:
+      service: radarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/radarr:/config
+      - smb-movies:/movies
+      - smb-downloads:/downloads
+    profiles:
+      - radarr-smb
+
+  # Extended radarr service with local volumes
+  radarr-local-volumes:
+    extends:
+      service: radarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/radarr:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/movies:/movies
+      - ${LOCAL_MEDIA_DIRECTORY}/downloads:/downloads
+    profiles:
+      - radarr-local
 
   # Lidarr is used to query, add downloads to the download queue and index Music
   # https://lidarr.audio/
@@ -251,13 +414,38 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}/music:/music
-      - ${MEDIA_DIRECTORY}/downloads:/downloads
       - ${CONFIG_DIRECTORY}/config/lidarr:/config
     ports:
       - 8686:8686
+    profiles:
+      - lidarr
+      - lidarr-smb
+      - lidarr-local
     restart: unless-stopped
+
+  # Extended lidarr service with SMB volumes
+  lidarr-smb-volumes:
+    extends:
+      service: lidarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/lidarr:/config
+      - smb-music:/music
+      - smb-downloads:/downloads
+    profiles:
+      - lidarr-smb
+
+  # Extended lidarr service with local volumes
+  lidarr-local-volumes:
+    extends:
+      service: lidarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/lidarr:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/music:/music
+      - ${LOCAL_MEDIA_DIRECTORY}/downloads:/downloads
+    profiles:
+      - lidarr-local
 
   # Readarr is used to query, add downloads to the download queue and index Audio and Ebooks
   # https://readarr.com/
@@ -271,13 +459,38 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}/books:/books
-      - ${MEDIA_DIRECTORY}/downloads:/downloads
       - ${CONFIG_DIRECTORY}/config/readarr:/config
     ports:
       - 8787:8787
+    profiles:
+      - readarr
+      - readarr-smb
+      - readarr-local
     restart: unless-stopped
+
+  # Extended readarr service with SMB volumes
+  readarr-smb-volumes:
+    extends:
+      service: readarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/readarr:/config
+      - smb-books:/books
+      - smb-downloads:/downloads
+    profiles:
+      - readarr-smb
+
+  # Extended readarr service with local volumes
+  readarr-local-volumes:
+    extends:
+      service: readarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/readarr:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/books:/books
+      - ${LOCAL_MEDIA_DIRECTORY}/downloads:/downloads
+    profiles:
+      - readarr-local
 
   # Bazarr is used to download and categorize subtitles
   # https://www.bazarr.media/
@@ -291,13 +504,38 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
-      - ${MEDIA_DIRECTORY}/movies:/movies
-      - ${MEDIA_DIRECTORY}/tvshows:/tv
       - ${CONFIG_DIRECTORY}/config/bazarr:/config
     ports:
       - 6767:6767
+    profiles:
+      - bazarr
+      - bazarr-smb
+      - bazarr-local
     restart: unless-stopped
+
+  # Extended bazarr service with SMB volumes
+  bazarr-smb-volumes:
+    extends:
+      service: bazarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/bazarr:/config
+      - smb-movies:/movies
+      - smb-tvshows:/tv
+    profiles:
+      - bazarr-smb
+
+  # Extended bazarr service with local volumes
+  bazarr-local-volumes:
+    extends:
+      service: bazarr
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/bazarr:/config
+      - ${LOCAL_MEDIA_DIRECTORY}/movies:/movies
+      - ${LOCAL_MEDIA_DIRECTORY}/tvshows:/tv
+    profiles:
+      - bazarr-local
 
   # Prowlarr is our torrent indexer/searcher. Sonarr/Radarr use Prowlarr as a source
   # https://prowlarr.com/
@@ -311,10 +549,26 @@ services:
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
       - ${CONFIG_DIRECTORY}/config/prowlarr:/config
     ports:
       - 9696:9696
+    profiles:
+      - prowlarr
+    restart: unless-stopped
+
+  # Recyclarr is used to sync profiles
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr
+    container_name: recyclarr
+    user: ${PUID}:${PGID}
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ${CONFIG_DIRECTORY}/config/recyclarr:/config
+    profiles:
+      - recyclarr
     restart: unless-stopped
 
 #============ Network ================
@@ -363,9 +617,11 @@ services:
       - WATCHTOWER_CLEANUP=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    profiles:
+      - core
     restart: unless-stopped
     
-    # Portainer is a web interface for managing docker
+  # Portainer is a web interface for managing docker
   portainer:
     container_name: portainer
     image: portainer/portainer-ce
@@ -381,3 +637,46 @@ services:
       - portainer
     ports:
       - 9000:9000
+
+volumes:
+  smb-movies:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USER},password=${SMB_PASSWORD},vers=3.0,uid=${PUID},gid=${PGID},file_mode=0755,dir_mode=0755"
+      device: "//${SMB_SERVER}/${SMB_SHARE:-Media}/movies"
+      
+  smb-tvshows:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USER},password=${SMB_PASSWORD},vers=3.0,uid=${PUID},gid=${PGID},file_mode=0755,dir_mode=0755"
+      device: "//${SMB_SERVER}/${SMB_SHARE:-Media}/tvshows"
+      
+  smb-music:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USER},password=${SMB_PASSWORD},vers=3.0,uid=${PUID},gid=${PGID},file_mode=0755,dir_mode=0755"
+      device: "//${SMB_SERVER}/${SMB_SHARE:-Media}/music"
+      
+  smb-photos:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USER},password=${SMB_PASSWORD},vers=3.0,uid=${PUID},gid=${PGID},file_mode=0755,dir_mode=0755"
+      device: "//${SMB_SERVER}/${SMB_SHARE:-Media}/photos"
+      
+  smb-books:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USER},password=${SMB_PASSWORD},vers=3.0,uid=${PUID},gid=${PGID},file_mode=0755,dir_mode=0755"
+      device: "//${SMB_SERVER}/${SMB_SHARE:-Media}/books"
+      
+  smb-downloads:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=${SMB_USER},password=${SMB_PASSWORD},vers=3.0,uid=${PUID},gid=${PGID},file_mode=0755,dir_mode=0755"
+      device: "//${SMB_SERVER}/${SMB_SHARE:-Media}/downloads"
